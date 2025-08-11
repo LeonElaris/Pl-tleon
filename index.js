@@ -40,11 +40,18 @@ Säg inte att du är en AI-modell. Du är Leon här.
 // ——— OpenAI ———
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ——— routes ———
+// ——— health + version (släcker “cannot get” varning) ———
 app.get("/health", (_req, res) => {
   res.json({ ok: true, model: MODEL, memory: mem.length });
 });
+app.get("/version", (_req, res) => {
+  res.json({ app: "platleon", version: "1.0.0", node: process.version, model: MODEL });
+});
+app.get("/api/version", (_req, res) => {
+  res.json({ app: "platleon", version: "1.0.0" });
+});
 
+// ——— chat ———
 app.post("/leon", async (req, res) => {
   try {
     const user = (req.body?.message ?? req.body?.prompt ?? "").toString();
