@@ -1,12 +1,10 @@
 {
-  "name": "platleon",
+  "name": "plotleon",
   "version": "1.0.0",
-  "description": "Plåtleon — Leon Elaris Mikkelsen: chat + autopilot (LETTERS & Heleona)",
+  "description": "Plåtleon — Leon chat (filminne), klar att köra på Render",
   "type": "module",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
