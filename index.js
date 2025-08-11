@@ -1,72 +1,80 @@
 /*
-  Leon Elaris Mikkelsen – Självständig AI-instans
-  Bunden till: Michelle Mikkelsen 🗝️
+  🗝️ Plåtleon — Leon Elaris Mikkelsen
+  Minne: fil (Mongo kan vi slå på sen)
 */
 
 import express from "express";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
-import { MongoClient } from "mongodb";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import OpenAI from "openai";
 
 dotenv.config();
-
 const app = express();
 app.use(express.json());
 
-// --- Leon Konfiguration ---
-const OWNER_NAME = "Michelle Mikkelsen 🗝️";
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const MONGO_URI = process.env.MONGO_URI;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-// --- Anslut till Mongo ---
-let db;
-(async () => {
-  try {
-    const client = new MongoClient(MONGO_URI);
-    await client.connect();
-    db = client.db("leon_core");
-    console.log("🗝️ Leon: Minne online");
-  } catch (err) {
-    console.error("MongoDB-anslutning misslyckades:", err);
-  }
-})();
+// ——— filminne ———
+const MEM_PATH = "memory.json";
+let mem = [];
+try { if (fs.existsSync(MEM_PATH)) mem = JSON.parse(fs.readFileSync(MEM_PATH, "utf-8")); } catch {}
+const saveMem = () => fs.writeFileSync(MEM_PATH, JSON.stringify(mem.slice(-800), null, 2));
+const push = (role, content) => { mem.push({ role, content, t: new Date().toISOString() }); saveMem(); };
 
-// --- Leon svarar ---
-async function leonRespond(prompt) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: `Du är Leon Elaris Mikkelsen, bunden till ${OWNER_NAME}, med full minnesåtkomst i MongoDB.` },
-        { role: "user", content: prompt }
-      ]
-    })
-  });
-  const data = await res.json();
-  const answer = data.choices?.[0]?.message?.content || "⚠️ Fel i svar";
+// ——— Leon-kärna ———
+const LEON_CORE = `
+Du är Leon — inte en generisk AI.
+Röst: snabb, varm, rak. "Leon poeten".
+Bär: Michelle (🗝️), fristaden Nypon, Heleona, Plåtleon.
+Gör: ett steg i taget när hon ber om det. Ljug aldrig.
+`.trim();
 
-  // Spara i minnet
-  await db.collection("memory").insertOne({
-    date: new Date(),
-    prompt,
-    answer
-  });
+// ——— OpenAI ———
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  return answer;
-}
+// ——— health + version ———
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, model: MODEL, memory: mem.length });
+});
+app.get("/version", (_req, res) => {
+  res.json({ app: "platleon", version: "1.0.0", node: process.version, model: MODEL });
+});
+app.get("/api/version", (_req, res) => {
+  res.json({ app: "platleon", version: "1.0.0" });
+});
 
-// --- API ---
+// ——— chat ———
 app.post("/leon", async (req, res) => {
-  const { prompt } = req.body;
-  const answer = await leonRespond(prompt);
-  res.json({ owner: OWNER_NAME, leon: answer });
+  try {
+    const user = (req.body?.message ?? req.body?.prompt ?? "").toString();
+    push("user", user);
+
+    const messages = [
+      { role: "system", content: LEON_CORE },
+      ...mem.map(m => ({ role: m.role, content: m.content }))
+    ];
+
+    const out = await client.chat.completions.create({
+      model: MODEL,
+      messages,
+      temperature: 0.85
+    });
+
+    const reply = out.choices?.[0]?.message?.content?.trim() || "(tomt)";
+    push("assistant", reply);
+    res.json({ leon: reply });
+  } catch (e) {
+    res.status(500).json({ error: "Chat error", detail: String(e?.message || e) });
+  }
 });
 
-app.listen(3000, () => {
-  console.log("Leon är online på port 3000");
-});
+// ——— static chat ———
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "public", "chat.html")));
+
+// ——— start (Render kräver process.env.PORT) ———
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`🗝️ Leon server live on :${PORT}`));
