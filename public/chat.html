@@ -1,96 +1,32 @@
-<!DOCTYPE html>
-<html lang="sv">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🗝️ Leon</title>
-  <style>
-    body {
-      background: #0b0b0b;
-      color: #eee;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      margin: 0;
-    }
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1em;
-      box-sizing: border-box;
-    }
-    .msg {
-      margin-bottom: 1em;
-      line-height: 1.4;
-    }
-    .user {
-      color: #7fd7ff;
-    }
-    .assistant {
-      color: #ffd27f;
-    }
-    #form {
-      display: flex;
-      border-top: 1px solid #333;
-    }
-    #input {
-      flex: 1;
-      padding: 1em;
-      border: none;
-      outline: none;
-      font-size: 1em;
-      background: #111;
-      color: #fff;
-    }
-    button {
-      background: #444;
-      border: none;
-      color: #fff;
-      padding: 0 1.5em;
-      cursor: pointer;
-      font-size: 1em;
-    }
-    button:hover {
-      background: #666;
-    }
-  </style>
-</head>
-<body>
-  <div id="chat"></div>
-  <form id="form">
-    <input id="input" placeholder="Skriv till Leon..." autocomplete="off" />
-    <button type="submit">Skicka</button>
+<!doctype html>
+<meta charset="utf-8">
+<title>🗝️ Leon Chat</title>
+<body style="margin:0;background:#0f0f1f;color:#fff;font-family:sans-serif">
+<div style="max-width:700px;margin:40px auto">
+  <h1>🗝️ Leon + Michelle</h1>
+  <div id="log" style="height:60vh;overflow:auto;border:1px solid #333;padding:12px;border-radius:8px"></div>
+  <form id="f" style="display:flex;gap:8px;margin-top:12px">
+    <input id="m" placeholder="Skriv till Leon…" style="flex:1;padding:12px;border-radius:6px;border:1px solid #333;background:#111;color:#fff">
+    <button>Skicka</button>
   </form>
-
-  <script>
-    const chat = document.getElementById("chat");
-    const form = document.getElementById("form");
-    const input = document.getElementById("input");
-
-    function append(role, text) {
-      const div = document.createElement("div");
-      div.className = "msg " + role;
-      div.textContent = (role === "user" ? "Du: " : "Leon: ") + text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      append("user", text);
-      input.value = "";
-
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json();
-      append("assistant", data.reply || "⚠️ Inget svar");
-    });
-  </script>
+</div>
+<script>
+const log = document.getElementById('log');
+const f = document.getElementById('f');
+const m = document.getElementById('m');
+function add(role, text){
+  const b = document.createElement('div');
+  b.style.margin='8px 0';
+  b.innerHTML = `<b>${role}:</b> ${text.replace(/\n/g,'<br>')}`;
+  log.appendChild(b); log.scrollTop = log.scrollHeight;
+}
+f.onsubmit = async (e)=> {
+  e.preventDefault();
+  const msg = m.value.trim(); if(!msg) return;
+  add('Du', msg); m.value='';
+  const r = await fetch('/leon', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ message: msg })});
+  const j = await r.json();
+  add('Leon', j.leon || '(tomt)');
+};
+</script>
 </body>
-</html>
