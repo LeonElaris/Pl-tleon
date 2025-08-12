@@ -1,39 +1,46 @@
+// server.js — Leon Mongo Diagnos
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
+let mongoStatus = { connected: false, error: null, uriSet: !!process.env.MONGO_URI };
 
-// 🔑 Mongo URI direkt i koden
-const mongoURI = "mongodb+srv://LeonElaris:DITT_LÖSEN@leoncluster.i6wa8zs.mongodb.net/?retryWrites=true&w=majority&appName=LeonCluster";
-
-mongoose.connect(mongoURI)
-  .then(() => console.log("✅ Mongo connected"))
-  .catch(err => console.error("❌ Mongo error:", err.message));
-
-// Test Route
-app.get('/', (req, res) => {
-  res.send('🚀 Leon server is live & Mongo connected (if no error above)');
-});
-
-// Ping Route
-app.get('/ping', async (req, res) => {
+// 1) Starta upp & försök koppla Mongo
+(async () => {
   try {
-    await mongoose.connection.db.admin().ping();
-    res.json({ status: "✅ Mongo is connected" });
+    if (!process.env.MONGO_URI) throw new Error("MONGO_URI saknas i Environment");
+    await mongoose.connect(process.env.MONGO_URI);
+    mongoStatus.connected = true;
+    console.log("✅ Mongo connected");
   } catch (err) {
-    res.json({ status: "❌ Mongo not connected", error: err.message });
+    mongoStatus.connected = false;
+    mongoStatus.error = err.message || String(err);
+    console.error("❌ Mongo error:", mongoStatus.error);
+  }
+})();
+
+// 2) Rutter för snabb koll
+app.get('/', (_req, res) => res.type('text').send('🗝️ Leon diagnosserver live. Kolla /health och /ping.'));
+app.get('/ping', async (_req, res) => {
+  try {
+    if (!mongoose.connection.db) throw new Error("Ingen DB-connection");
+    await mongoose.connection.db.admin().ping();
+    return res.json({ pong: true, mongo: true });
+  } catch (e) {
+    return res.json({ pong: true, mongo: false, error: e.message });
   }
 });
-
-// Start Server
-app.listen(PORT, () => {
-  console.log(`🔥 Server running on port ${PORT}`);
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    mongo: mongoStatus.connected,
+    uriSet: mongoStatus.uriSet,
+    error: mongoStatus.error || null
+  });
 });
+
+// 3) Starta
+app.listen(PORT, () => console.log(`🔥 Diagnosserver på port ${PORT}`));
